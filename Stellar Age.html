@@ -123,8 +123,9 @@
 							<p>The Beehive Star cluster(M44, Praesepe) is one of the nearest open cluster in Cancer constel-
 								lation. This report contains details about the fitting isochrone method to estimate the stellar age
 								by using the image data from March 15, 2021. Taking in SFU Trottier Observatory over 3 hours. This project
-								is based on anaconda environment python and contents a lot of special function. If you want to learn more
-								about the detail, please contact me.</p>
+								is based on anaconda environment python and contents a lot of special function. There are many different algorithms to analysis the data and image, but I can't provide all the details or this article will be very very long... which no one wants to read a 3 hours article about the logic behind code right:)? If the word is <b>bold</b>, then it is a algorithms or method.
+								If you want to learn more
+								about the detail, feel free to contact me.</p>
 						</div>
 						<div>
 							<h5 class="margin-top-30 margin-lg-top-40">Introduction</h5>
@@ -139,7 +140,7 @@
 						</div>
 						<div>
 							<h5 class="margin-top-30 margin-lg-top-40">Theory</h5>
-							<p>By using equation</p>
+							<p id = "eq1">By using equation</p>
 							<p>
 							$$S_{\textrm{C}} = \frac{S_{\textrm{R}} - t{D} - B}{F}$$
 							</p>
@@ -151,86 +152,164 @@
 							With calibrated image, in order to make the a H-R diagram, I need to shift the calibrated images to a common pixel frame using <b>reproject_interp</b> command with World Coordinate System(WCS). This step will align all the exposures onto same pixels. 
 							Then combine pixels into a single image by using <b>sigma_clip</b> method.
 							</p>
-							<p>
-							$$\sigma ^2 = &lt;x^2&gt; - &lt;x&gt;^2 = N\left(a^2q+a^2\left(1-q\right)-&lt;x&gt;^2\right) = 4a^2Nq\left(1-q\right)$$
-							</p>
-							<p>
-							with central limit theorem, when N gets large, the data will approach Gaussian distribution(in all dimensions).
-							</p>
+							In order to show sources only, sky subtraction from python <b>sep</b> will be very useful. By
+							using <b>Background</b> algorithm to do background estimation, I can get a sources only image
+							which the sources can be detected by using <b>extract</b> algorithm.
+							<br>
+							The above theoretical steps are about making clear images for photometry. Photometry
+							is measuring the light magnitudes of stars so I can compare it with colours. A H-R diagram
+							is needed for estimating the cluster age.
+							<br/>
+							Isochrone is a curve which represents stars of same age. Newborn stars of low mass are
+cold but luminous. With time pass, these stars decrease luminosity and stay around the same
+temperature until they reach the main sequence of the isochrone. Comparing H-R diagram
+with selected isochrone, I can get an estimate value for age by fitting a mpfit(see more at <a href="https://en.wikipedia.org/wiki/Levenberg%E2%80%93Marquardt_algorithm" style="color:black;"><b>Levenberg-
+Marquardt least-squares fit</b></a>).
 						</div>
 						<div>
-							<h5 class="margin-top-30 margin-lg-top-40">Brownian motion and Metropolis-Hastings algorithm</h5>
-							<p>Now we understand the basic concept of stochastic simulation. It is time to do use it for
-							a real-world problem, such as Brownian motion, discovered by Robert Brown in 1827, who studied pollen movement in the water. 
-							Brownian motion is the random motion of particle
-							in a medium. For example, in water, the particle may get hit by the water molecules in
-							all directions and move randomly (<a href="https://en.wikipedia.org/wiki/Brownian_motion#/media/File:Brownian_motion_large.gif"><b>Animated example</b></a>[<a href="#ct3" style="color:red;"><b>3</b></a>]). The probability of the Brownian
-							motion step depends only on the current particle state and is not affected by the past. This
-							process is defined as Markov Chain[<a href="#ct4" style="color:red;"><b>4</b></a>].
-							</p>
-							<p>A famous algorithm in random sampling is called the Metropolis-Hastings algorithm. It
-								is one of the Markov Chain Monte Carlo method for obtaining a sequence of random samples
-								from a probability model when direct sampling is difficult. The algorithm has the follow
-								steps: First, we pick a initial state, such as my choice (x = 0, y = 0) in Brownian motion.
-								Next, we know that random walk will approach normal distribution as sample size increases,
-								so we can choice two random numbers (α, β) from normal distribution and add it to the
-								initial state (x′ = x + α, y′ = y + β). Then we calculate the acceptance ratio, which is
-								the probability to accept the proposed state x′ and y′. The common choice for it is the
-								Metropolis choice[<a href="#ct5" style="color:red;"><b>5</b></a>]
+							<h5 class="margin-top-30 margin-lg-top-40">Methods</h5>
+							<p>On March, 15, 2021 at 9pm. By using CCD camera at SFU Trottier Observatory with
+exposure time = 5 sec for single exposures and bin = 1, our group collected a total of
+35 images, 12 exposures, each exposures have three bands, bandV, bandB and bandR.
+However, our group interrupted data collection processing at second exposure, and changed
+WCS setting. So I will only use the acceptable image data which start from third exposures
+to the end. Here is the raw data image(opened in ds9 on HPC server) <a href="#fg1" style="color:blue;"><b>1</b></a>.
+<img src="assets/images/raw.png" class = "imgcenter" id = "fg1">
+
 							</p>
 							<p>
-							$$A(x',x_{t}) = min(1,\frac{P(x')}{P(x_{t})}\frac{norm(x_{t}|x')}{norm(x'|x_{t})})$$
+							First, in the <i>calibrateM44</i> file, I prefer to calibrate the image because of CCD systematic
+noise, there are three types in my case: bias, dark and flat. By using Eq. <a href="#eq1">(1)</a>, I can get a
+set of calibrated datas. In python file, I need all the master files for bin = 1 to calibrate the
+image. The loop is for all files from third exposures to the end and calibrate all images by
+using the formula. Next, I need to do alignment about pixel-to-WCS conversion by creating
+a bigger board(or canvas). In align file, by using find optimal celestial wcs command,
+it finds an optimal size of canvas that will fit with every pixel and WCS coordinate images.
+Then using a loop and reproject interp to loop over all calibrated image. This step will
+map the pixels of image to the canvas. After that, use command sigma clip, which avoid
+the effect of outliers [3] such as cosmic rays. Take the mean value of it, adjusting pixels to
+zero if there were no good pixels to take a mean. Finally combine all adjusted parameters
+such as exposure time and airmass into a new file. Next step I did(in sky subract file) was
+subtracting the background bu using source extractor algorithm from python sep. The
+parameter in sep.Background declares a box and a filter. It creates a smooth image
+background. By subtracting the sky background data from image data and use deblending
+algorithm sep.extract. I get a table of extracted data and a clear image of M44. See Fig. <a href="#fg2" style="color:blue;"><b>2</b></a>.
+							
+							</p>
+							<img src="assets/images/sky.png" class = "imgcenter" id = "fg2">
+							<p>
+							For photometry analysis, I use <b>sep.kron_radius</b> from the photometry file to find the light-
+weighted size with sky-subtracted image, the position of the star from the extracted table, semi-major,
+semi-minor, and position angles of all objects. Then, by using <b>sep.sum</b> ellipse to sum data
+in elliptical aperture. This step is used for extracting the light sources from each band
+image. By using the equation
+							</p>
+							<p id="eq2">
+							$$M = -2.5\log(\frac{counts}{t})$$
 							</p>
 							<p>
-							where A is the acceptance ratio between x′ and xt state, P is the distribution model(2-D
-							random walk model) and norm is normal distribution. We chose the minimal value between
-							1 and the ratio. After that, we pick a random number c between 0 and 1 from uniform
-							distribution and compare it with our acceptance ratio. If A ≥ c, we accept the move.
-							Otherwise, we reject the move[<a href="#ct6" style="color:red;"><b>6</b></a>]. It is hard to show all details and proof in this report.
-							More details at <a href="http://www.probability.ca/hastings/hastings.pdf"><b>information</b></a>[<a href="#ct4" style="color:red;"><b>4</b></a>].
+							where counts are the flux, t is the exposure time and M is the magnitude, to compute the
+magnitude and magnitude error with standard error derivation of Eq. <a href="#eq2">(2)</a>. The function
+<b>getMags</b> uses kron radius to calculate the magnitude and magnitude error. Also, I need
+an extinction coefficient to correct the magnitude, this value may change for each night. In
+my case, I use 0.54 for V-band, 0.76 for B-band, and 0.41 for R-band. Next, I match stars
+in different catalogs by using the function <b>matchTables</b> based on right ascension and
+declination coordinates. Finally, run over all bands to get values for the instrumental
+magnitude of V-band and B-band. So I can create an H-R diagram. See Fig. <a href="#fg3" style="color:blue;"><b>3</b></a>.
 							</p>
+							<img src="assets/images/cmd_instrumental.png" class = "imgcenter" id = "fg3">
 							<p>
-							For 2-D Brownian motion, the model we use will be similar to a 2-D random walk. We
-							only need to know the probability distribution so that we will set up the function with only
-							one step, each step the particle has a 0.25 chance to go up, down, left, or right, the final
-							output is a 2-D array which store the final position (x, y). Then, set the initial state at
-							(0, 0) and 5000 Metropolis steps, for each step the algorithm checks the acceptance of x and
-							y, if the step is accepted, the particle will move to the new position. This situation is all
-							randomized, the current position is independent from other steps, which is what happening
-							when a particle is in a medium. See Fig. <a href="#fg3" style="color:blue;"><b>3</b></a>. This simulation is very useful in biology.
-							Many protein-based molecular motors may also be Brownian motors. Brownian motors are
-							molecular machines that use chemical reactions to move in space, such as ATP synthase and myosin II[<a href="#ct7" style="color:red;"><b>7</b></a>]. 
-							Moreover, many nanotechnologies require Brownian motion as the primary
-							control factor, for example, a nanobot. Imaging a nanobot that can check over the whole
-							body of a human, it needs energy to move, but in nano-size, it is hard to design energy
-							storage in the robot, so the nanobot is designed to take bias Brownian motion(design the
-							nanobot to take step/move unequally) to get in the correct direction[<a href="#ct8" style="color:red;"><b>8</b></a>].
+							Compare the image with Stellarium M44 [<a href="#ct1" style="color:red;"><b>4</b></a>]. See Fig. <a href="#fg4" style="color:blue;"><b>4</b></a>
+							
+							. We can see that the far left bright
+star is the 42 Cancri. The dim star is SAO 98023, which is a good selection for a reference
+star to calculate apparent magnitude. The magnitudes data are: MagV = 9.45, MagB
+= 9.79. See Fig. <a href="#fg5" style="color:blue;"><b>5</b></a>. 
+The red circle star is the reference star, SAO 98023. The pixel location
+from ds9 is x = 1088.15 and y = 2489.97. The center of the cluster is at x = 2087.24 and
+y = 1890.91. Because the cluster is very huge, the image I took doesn’t cover all parts of
+it. So all the stars in the image belong to the cluster, I choose the radius of the cluster to be 
+half of the diagonal line of the square image, so it can cover all the stars. Then, by using
+the coordinate of the reference star. I can use argmin to find the index of a minimum distance
+for the reference star. So I can calculate the magnitude offset from the given value. The
+offset between the actual B-band magnitude of the reference star and the B-band instrumental
+magnitude is:
 							</p>
-							<img src="assets/images/BM.png" class = "imgcenter" id = "fg3">
+							<img src="assets/images/Stellar.png" class = "imgcenter" id = "fg4">
+							<img src="assets/images/SAO.png" class = "imgcenter" id = "fg5">
+							
+							<p>
+							I select an isochrone with the lowest log Age of 6.0, the highest log Age of 10.0 with a 0.2 log
+Age interval and metallicity of 0.019. I compute the b-v value for isochrone and get the
+log age value from the isochrone table. To plot isochrone with M44, I only need a
+single isochrone with some specific values for logAge, distance modulus, and E(B − V ). The
+function <b>plotIsochrone</b> from fitCMD file declares that. It states a unique isochrone that
+is closest to the given log-Age and chooses only the data point belonging to the closest isochrone.
+Then it computes the new shape of the isochrone after the distance modulus and reddening are
+applied. This function is for choosing an acceptable initial guess for fitting. I choose
+logAge to be 8.75, distance modulus to be 7, and E(B − V ) to be 0.1. Compared to the H-R
+diagram for M44, see Fig. <a href="#fg6" style="color:blue;"><b>6</b></a>.
+
+We can see that the line passes through the main sequence well. So I can do the fitting
+now. The function isochroneDistance from fitCMD file states the fitting function. It
+creates a linear interpolation factor and uses it to interpolate between the minimum distances of
+							</p>
+							<img src="assets/images/fitByEye.png" class = "imgcenter" id = "fg6">
+						</div>
+						
+						<p>
+						We can see that the line passes through the main sequence well. So I can do the fitting
+now. The function <b>isochroneDistance</b> from <i>fitCMD</i> file states the fitting function. It
+creates a linear interpolation factor, uses it to interpolate between the minimum distances of
+two isochrones, and uses these isochrones to find the theatrical values for apparent magnitude,
+B-V. Then use sigma clipping to exclude the stars outside of the distance of 3σ from the
+isochrones. The next function <b>fitfunction</b> from <i>fitCMD</i> file indicates the parameters used
+in the function <b>isochroneDistance</b>. Plugin the <b>fitfunction</b> with the initial guess value. I got
+a log Age value of 8.62, a distance modulus value of 6.82, and an E(B − V ) value of 0.16. See
+Fig.  <a href="#fg7" style="color:blue;"><b>7</b></a>.
+						</p>
+						<img src="assets/images/numericalfit.png" class = "imgcenter" id = "fg7">
+						<div>
+						<h5 class="margin-top-30 margin-lg-top-40">Result</h5>
+							<p>
+							The optimized values for log Age, distance modulus, and reddening are 8.62, 6.82, and 0.16.
+The log Age is 8.62 implies that the cluster age is around 417 million years. Compared
+with the previous result of the estimated age of 500-700 million years, the value is a bit off. The
+reasons for it, first, compare the H-R diagrams of my data and Fig. <a href="#fg8" style="color:blue;"><b>8</b></a> from Star Observer [<a href="#ct6" style="color:red;"><b>6</b></a>].
+We can see that for my data, I don’t have the points for red giant, this will cause the
+fitting curve to curve less right side at the top left part above the turning point. Second, the
+value for metallicity I use is similar to the Sun(0.019), which may not be the same for M44.
+According to Explaining the Praesepe blue straggler HD 73666 by L. Fossati, S. Mochnacki,
+J. Landstreet and W. Weiss [<a href="#ct7" style="color:red;"><b>7</b></a>], the isochrone metallicity for M44 could be z = 0.024.
+							</p>
+							<img src="assets/images/Compare.jpg" class = "imgcenter" id = "fg8">
 						</div>
 						<div>
 						<h5 class="margin-top-30 margin-lg-top-40">Conclusion</h5>
-							<p>As we can see, the Monte Carlo method is a valuable tool to solve the randomized problem,
-							and the Metropolis-Hasting algorithm is only one of them. Many different methods can be
-							studied in Monte Carlo, such as Gibbs sampling and simulated annealing. Furthermore,
-							other than motion, Monte Carlo can simulate complex cellular signaling and the formation
-							of multi-molecular complexes(assembly apoptosome during apoptotic cell death activation).
-							In future studies, this topic can be extended to more Monte Carlo methods that relate to
-							biophysical problems.
-							</p>
+							<p>
+							The estimation of the M44 cluster age is close to the previous experimental result, but without
+the whole cluster stars, the value is lower than my expectation. However, the brightest stars
+will saturate if the exposures are too long. The red giants are hard to be observed. For
+reference star selection, I should use the dimmest star around turn off as a reference. This
+would give a good apparent visual magnitude range of M44.							</p>
 						</div>
 						<div class="margin-top-30 margin-lg-top-40">
 							<h5 class="fw-medium">References</h5>
 							<ul class="list-dash">
-								<li id="ct1">[1] Subhadip R. (2013). <i>Kinetic Monte Carlo Simulation in Biophysics and Systems Biology</i>. In-
-									techOpen.</li>
-								<li id="ct2">[2] Andrej K. (2018). <i>MAE 545: Lecture 17 Random walks</i>. Princeton University, Mechanical and Aerospace Engineering.</li>
-								<li id="ct3">[3] Paco, Hwang. (2016). <i>Ejs Open Source Brownian Motion Gas Model Java Applet</i>. Open Source Physics@Singapore.</li>
-								<li id="ct4">[4] Hastings WK. (1970) <i>Monte Carlo sampling methods using Markov chains and their applications</i>. Biometrika. University of Toronto. Page 98.</li>
-								<li id="ct5">[5] Eichler M. (2004) <i>S12: Metropolis-Hastings Algorithm</i>. University of Chicago, Department of Statistic. Page 1-4.</li>
-								<li id="ct6">[6] Linnankoski M. (2020). <i>Estimating the dynamics of a geometric Brownian motion using MCMC</i>. Aalto University, School of Science.</li>
-								<li id="ct7">[7] Wikipedia contributors. (2022). Brownian motor. Wikipedia.</li>
-								<li id="ct8">[8] Kelty C, Hutchinson J. (2009) <i>Nanotechnology: Content and Context</i>. Openstax. Section 2.2: Brownian Motion.</li>
+							
+
+								<li id="ct1">[1] McClure, B., Byrd, D. (2020) <i>The Beehive: 1000 stars in Cancer</i>. EarthSky.</li>
+								
+								<li id="ct2">[2] <i>Messier 44: Beehive Cluster</i>. Messier Objects. Retrieved from https://www.messier-
+objects.com</li>
+								<li id="ct3">[3] Akhlaghi, M. (2015). <i>GNU Astronomy Utilities</i>. Hong Kong: Samurai Media Limited.
+Chap. 7.1.3.</li>
+								<li id="ct4">[4] Stellarium Web Online Star Map. Retrieved from https://stellarium-web.org/</li>
+								<li id="ct5">[5] SIMBAD query result. Retrieved from http://simbad.u-strasbg.fr/simbad/sim-id?Ident=
+SAO 98023&submit=submit+id</li>
+								<li id="ct6">[6] <i>M44praesepe</i>. Data from Star Observer.eu.</li>
+								<li id="ct7">[7] L.Fossati., S.Mochnacki., J.Landstreet., W.Weiss. (2018) <i>Explaning the Praesepe blue straggler
+HD 73666</i> ESO 2018. p.3.</li>
 								<li>All codes are in python. With numpy, matplotlib. If you need the code please contact me by email.</li>
 							</ul>
 						</div>
